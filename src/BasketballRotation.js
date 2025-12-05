@@ -332,65 +332,6 @@ const BasketballRotation = () => {
     "5:00",
   ];
 
-  const generateCompleteCSV = () => {
-    if (!solution) return "";
-
-    const { rotation, players: solutionPlayers, validation } = solution;
-    let csv = "";
-
-    // Rotation Grid
-    csv += "ROTATION GRID\n";
-    csv +=
-      "Player,Start,1H 15:00,1H 10:00,1H 5:00,2H 20:00,2H 15:00,2H 10:00,2H 5:00,Total\n";
-    solutionPlayers.forEach((player, pIdx) => {
-      csv += `${player.name},`;
-      csv += rotation[pIdx].map((p) => (p === 1 ? "X" : "")).join(",");
-      csv += `,${validation[pIdx].total} min\n`;
-    });
-    csv += "Per Period,";
-    csv += periods
-      .map((_, periodIdx) =>
-        rotation.reduce((sum, player) => sum + player[periodIdx], 0)
-      )
-      .join(",");
-    csv += ",\n\n";
-
-    // Substitution Report
-    csv += "SUBSTITUTION REPORT\n";
-    csv += "Time,Player In,Player Out\n";
-    periods.slice(1).forEach((period, idx) => {
-      const periodNum = idx + 1;
-      const prevPeriod = periodNum - 1;
-
-      const prevOnCourt = solutionPlayers
-        .filter((_, pIdx) => rotation[pIdx][prevPeriod] === 1)
-        .map((p) => p.name);
-      const currOnCourt = solutionPlayers
-        .filter((_, pIdx) => rotation[pIdx][periodNum] === 1)
-        .map((p) => p.name);
-
-      const subsOut = prevOnCourt.filter((name) => !currOnCourt.includes(name));
-      const subsIn = currOnCourt.filter((name) => !prevOnCourt.includes(name));
-
-      const label = period;
-
-      if (subsIn.length > 0) {
-        subsIn.forEach((inPlayer, i) => {
-          csv += `${label},${inPlayer},${subsOut[i] || ""}\n`;
-        });
-      } else {
-        csv += `${label},No substitutions,\n`;
-      }
-    });
-
-    return csv;
-  };
-
-  const copyToClipboard = (content) => {
-    navigator.clipboard.writeText(content);
-    alert("Copied! Paste into Google Sheets (Ctrl+V or Cmd+V)");
-  };
-
   const downloadAsImage = async () => {
     // We'll use html2canvas library - need to add it to package.json
     // For now, we'll use a simpler approach with the native browser print
@@ -695,13 +636,16 @@ const BasketballRotation = () => {
 
       {solution && (
         <>
-          <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+          <div
+            className="rotation-schedule-container"
+            style={{ overflowX: "auto", marginBottom: "1.5rem" }}
+          >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1rem",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem",
               }}
             >
               <h2
@@ -711,49 +655,28 @@ const BasketballRotation = () => {
                   margin: 0,
                 }}
               >
-                Rotation Schedule
+                Lineup
               </h2>
-              <button
-                onClick={() => copyToClipboard(generateCompleteCSV())}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "#9ca3af",
-                  fontSize: "0.875rem",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  textDecorationStyle: "dotted",
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = "#6b7280";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = "#9ca3af";
-                }}
-              >
-                copy as csv
-              </button>
               <button
                 onClick={downloadAsImage}
                 style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "#9ca3af",
-                  fontSize: "0.875rem",
+                  padding: "0.375rem 0.75rem",
+                  fontSize: "0.75rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "9999px",
                   cursor: "pointer",
-                  textDecoration: "underline",
-                  textDecorationStyle: "dotted",
+                  backgroundColor: "white",
+                  color: "#6b7280",
+                  fontWeight: "normal",
                 }}
                 onMouseOver={(e) => {
-                  e.target.style.color = "#6b7280";
+                  e.target.style.backgroundColor = "#f9fafb";
                 }}
                 onMouseOut={(e) => {
-                  e.target.style.color = "#9ca3af";
+                  e.target.style.backgroundColor = "white";
                 }}
               >
-                print / save as pdf
+                export
               </button>
             </div>
             <table
@@ -834,16 +757,19 @@ const BasketballRotation = () => {
             </table>
           </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3
+          <div
+            className="substitution-report-container"
+            style={{ marginBottom: "1.5rem" }}
+          >
+            <h2
               style={{
-                fontSize: "1.25rem",
+                fontSize: "1.5rem",
                 fontWeight: "bold",
-                marginBottom: "0.5rem",
+                marginBottom: "0.75rem",
               }}
             >
-              Substitution Report
-            </h3>
+              Substitutions
+            </h2>
             <table
               style={{
                 borderCollapse: "collapse",
@@ -996,8 +922,11 @@ const BasketballRotation = () => {
             </table>
           </div>
 
-          <div className="no-print" style={{ marginBottom: "1.5rem" }}>
-            <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            className="no-print"
+            style={{ marginBottom: "1.5rem", marginTop: "2rem" }}
+          >
+            <div style={{ marginBottom: "0.5rem", textAlign: "center" }}>
               <button
                 onClick={() => setShowValidation(!showValidation)}
                 style={{
@@ -1068,7 +997,7 @@ const BasketballRotation = () => {
                         padding: "0.5rem 1rem",
                       }}
                     >
-                      Max Consecutive
+                      Max Run
                     </th>
                     <th
                       style={{

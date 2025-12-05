@@ -24,12 +24,40 @@ code {
     font-size: 14px;
   }
   
-  /* Make tables horizontally scrollable on mobile */
-  table {
-    display: block;
-    overflow-x: auto;
+  /* Super compact rotation schedule table on mobile */
+  .rotation-schedule-container table {
+    font-size: 0.65rem;
+  }
+  
+  .rotation-schedule-container th,
+  .rotation-schedule-container td {
+    padding: 0.25rem 0.125rem !important;
     white-space: nowrap;
-    font-size: 0.875rem;
+  }
+  
+  /* Rotate the period headers vertically */
+  .rotation-schedule-container thead th:not(:first-child) {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 0.5rem 0.25rem !important;
+    font-size: 0.65rem;
+    min-width: 1.5rem;
+  }
+  
+  /* First column (Player names) */
+  .rotation-schedule-container thead th:first-child,
+  .rotation-schedule-container tbody td:first-child {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.375rem !important;
+    position: sticky;
+    left: 0;
+    background-color: #f9fafb;
+    z-index: 1;
+  }
+  
+  /* Make other tables more compact on mobile */
+  .substitution-report-container table {
+    font-size: 0.75rem;
   }
   
   /* Compact padding for mobile */
@@ -43,7 +71,7 @@ code {
   }
   
   h2 {
-    font-size: 1.25rem !important;
+    font-size: 1.125rem !important;
   }
   
   /* Compact buttons */
