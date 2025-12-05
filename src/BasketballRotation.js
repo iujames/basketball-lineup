@@ -2,15 +2,15 @@ import React, { useState } from "react";
 
 const BasketballRotation = () => {
   const defaultPlayers = [
-    { name: "Josh", position: "G", targetMinutes: 20 },
-    { name: "Ethan", position: "G", targetMinutes: 20 },
-    { name: "Owen", position: "G", targetMinutes: 20 },
-    { name: "Jayden", position: "G", targetMinutes: 20 },
-    { name: "Easton", position: "G", targetMinutes: 20 },
-    { name: "Grayson", position: "F", targetMinutes: 20 },
-    { name: "Leighton", position: "F", targetMinutes: 20 },
-    { name: "Andrew", position: "F", targetMinutes: 20 },
-    { name: "Nolan", position: "F", targetMinutes: 20 },
+    { name: "Josh", position: "G", prioritize: false },
+    { name: "Ethan", position: "G", prioritize: false },
+    { name: "Owen", position: "G", prioritize: false },
+    { name: "Jayden", position: "G", prioritize: false },
+    { name: "Easton", position: "G", prioritize: false },
+    { name: "Grayson", position: "F", prioritize: false },
+    { name: "Leighton", position: "F", prioritize: false },
+    { name: "Andrew", position: "F", prioritize: false },
+    { name: "Nolan", position: "F", prioritize: false },
   ];
 
   const [players, setPlayers] = useState(defaultPlayers);
@@ -35,6 +35,7 @@ const BasketballRotation = () => {
   ]);
   const [solution, setSolution] = useState(null);
   const [error, setError] = useState(null);
+  const [showValidation, setShowValidation] = useState(false);
 
   const solvePuzzle = () => {
     // Try up to 50 times to find a valid solution
@@ -47,16 +48,16 @@ const BasketballRotation = () => {
           .fill(0)
           .map(() => Array(periods).fill(0));
 
-        // Set starters (period 0)
+        // Set starters (period 0) if specified
         starters.forEach((name) => {
           const idx = players.findIndex((p) => p.name === name);
-          rotation[idx][0] = 1;
+          if (idx !== -1) rotation[idx][0] = 1;
         });
 
-        // Set closers (period 7)
+        // Set closers (period 7) if specified
         closers.forEach((name) => {
           const idx = players.findIndex((p) => p.name === name);
-          rotation[idx][7] = 1;
+          if (idx !== -1) rotation[idx][7] = 1;
         });
 
         // Helper function to check if inexperienced constraint is violated
@@ -68,7 +69,9 @@ const BasketballRotation = () => {
           const inexpCount = inexperienced.filter((name) =>
             onCourt.includes(name)
           ).length;
-          return inexpCount <= 2;
+          // Don't allow ALL inexperienced players on court at once
+          // (must have at least one experienced player)
+          return inexpCount < inexperienced.length && inexpCount < 5;
         };
 
         // Helper function to count players in a period
@@ -118,8 +121,8 @@ const BasketballRotation = () => {
           return count;
         };
 
-        // Greedy assignment for periods 1-6
-        for (let period = 1; period < 7; period++) {
+        // Greedy assignment for all periods (fill in gaps for starters/closers too)
+        for (let period = 0; period < 8; period++) {
           // Skip if already at 5 players
           if (countInPeriod(period) === 5) continue;
 
@@ -141,7 +144,7 @@ const BasketballRotation = () => {
                 idx,
                 name: p.name,
                 position: p.position,
-                targetMinutes: p.targetMinutes,
+                prioritize: p.prioritize,
                 playTime: getPlayTime(idx),
                 half1: getHalfPlayTime(idx, 1),
                 half2: getHalfPlayTime(idx, 2),
@@ -160,17 +163,18 @@ const BasketballRotation = () => {
               }
             }
 
-            // Sort by priority: meet target minutes while keeping balance
+            // Sort by priority: give prioritized players more time, but keep balance
             candidates.sort((a, b) => {
               const halfA = period < 4 ? a.half1 : a.half2;
               const halfB = period < 4 ? b.half1 : b.half2;
 
-              // Calculate how far behind target each player is
-              const behindA = a.targetMinutes - a.playTime;
-              const behindB = b.targetMinutes - b.playTime;
+              // Calculate effective play time (prioritized players get -5 min boost)
+              const effectiveTimeA = a.playTime - (a.prioritize ? 5 : 0);
+              const effectiveTimeB = b.playTime - (b.prioritize ? 5 : 0);
 
-              // First priority: players furthest behind their target
-              if (behindA !== behindB) return behindB - behindA;
+              // First priority: players with less effective playing time
+              if (effectiveTimeA !== effectiveTimeB)
+                return effectiveTimeA - effectiveTimeB;
 
               // Second priority: balance within the current half
               if (halfA !== halfB) return halfA - halfB;
@@ -183,8 +187,8 @@ const BasketballRotation = () => {
               return Math.random() - 0.5;
             });
 
-            // Filter candidates by constraints first
-            const validCandidates = [];
+            // Try to assign the best candidate
+            let assigned = false;
             for (const candidate of candidates) {
               rotation[candidate.idx][period] = 1;
 
@@ -194,37 +198,8 @@ const BasketballRotation = () => {
                 continue;
               }
 
-              // This candidate is valid
-              validCandidates.push(candidate);
-              rotation[candidate.idx][period] = 0;
-            }
-
-            // Try to assign with equity preference
-            let assigned = false;
-            for (const candidate of validCandidates) {
-              rotation[candidate.idx][period] = 1;
-
-              // Check if this would create too much inequity (10+ minute gap)
-              const currentPlayTimes = players.map((_, idx) =>
-                getPlayTime(idx)
-              );
-              const minPlayTime = Math.min(...currentPlayTimes);
-              const maxPlayTime = Math.max(...currentPlayTimes);
-
-              // If equity is maintained, use this candidate
-              if (maxPlayTime - minPlayTime <= 10) {
-                assigned = true;
-                break;
-              }
-
-              // Otherwise, try next candidate
-              rotation[candidate.idx][period] = 0;
-            }
-
-            // If no candidate met equity constraint, fall back to first valid candidate
-            if (!assigned && validCandidates.length > 0) {
-              rotation[validCandidates[0].idx][period] = 1;
               assigned = true;
+              break;
             }
 
             // Safety check to avoid infinite loop
@@ -244,19 +219,31 @@ const BasketballRotation = () => {
           maxConsec: getMaxConsecutive(idx),
         }));
 
-        // Check if all validations pass
-        const allValid = validation.every(
-          (v) =>
-            v.total >= 20 && v.half1 >= 10 && v.half2 >= 10 && v.maxConsec <= 15
-        );
+        // Check if solution is balanced and valid
+        const playTimes = validation.map((v) => v.total);
+        const minPlayTime = Math.min(...playTimes);
+        const maxPlayTime = Math.max(...playTimes);
+        const timeSpread = maxPlayTime - minPlayTime;
 
-        // Also check that all periods have exactly 5 players
+        // All periods must have exactly 5 players
         const allPeriodsValid = Array.from({ length: periods }).every(
           (_, periodIdx) =>
             rotation.reduce((sum, player) => sum + player[periodIdx], 0) === 5
         );
 
-        if (allValid && allPeriodsValid) {
+        // Each half should have some balance (within 10 min per player)
+        const halfBalanced = validation.every(
+          (v) => Math.abs(v.half1 - v.half2) <= 10
+        );
+
+        // No player should play more than 15 consecutive minutes
+        const consecValid = validation.every((v) => v.maxConsec <= 15);
+
+        // Time spread should be reasonable (within 5 minutes for balanced play)
+        // Prioritized players may get one extra period (5 min) max
+        const balanceValid = timeSpread <= 5;
+
+        if (allPeriodsValid && halfBalanced && consecValid && balanceValid) {
           // Found a valid solution!
           setSolution({ rotation, players, validation });
           setError(null);
@@ -285,6 +272,12 @@ const BasketballRotation = () => {
   const updatePlayer = (index, field, value) => {
     const newPlayers = [...players];
     newPlayers[index][field] = value;
+    setPlayers(newPlayers);
+  };
+
+  const togglePrioritize = (index) => {
+    const newPlayers = [...players];
+    newPlayers[index].prioritize = !newPlayers[index].prioritize;
     setPlayers(newPlayers);
   };
 
@@ -389,18 +382,6 @@ const BasketballRotation = () => {
         csv += `${label},No substitutions,\n`;
       }
     });
-    csv += "\n";
-
-    // Validation
-    csv += "PLAYING TIME VALIDATION\n";
-    csv += "Player,Total,1st Half,2nd Half,Max Consecutive,Valid\n";
-    validation.forEach((v) => {
-      const valid =
-        v.total >= 20 && v.half1 >= 10 && v.half2 >= 10 && v.maxConsec <= 15;
-      csv += `${v.name},${v.total},${v.half1},${v.half2},${v.maxConsec},${
-        valid ? "YES" : "NO"
-      }\n`;
-    });
 
     return csv;
   };
@@ -410,298 +391,226 @@ const BasketballRotation = () => {
     alert("Copied! Paste into Google Sheets (Ctrl+V or Cmd+V)");
   };
 
+  const downloadAsImage = async () => {
+    // We'll use html2canvas library - need to add it to package.json
+    // For now, we'll use a simpler approach with the native browser print
+    window.print();
+  };
+
   return (
-    <div style={{ padding: "1.5rem", maxWidth: "1400px", margin: "0 auto" }}>
+    <div style={{ padding: "0.75rem", maxWidth: "1400px", margin: "0 auto" }}>
       <h1
-        style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "1.5rem" }}
+        style={{
+          fontSize: "1.75rem",
+          fontWeight: "bold",
+          marginBottom: "1rem",
+        }}
       >
         Basketball Rotation Generator
       </h1>
 
       {/* Player Configuration Section */}
       <div
+        className="no-print"
         style={{
-          marginBottom: "2rem",
+          marginBottom: "1rem",
           backgroundColor: "white",
-          padding: "1.5rem",
+          padding: "0.75rem",
           borderRadius: "0.5rem",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
         }}
       >
         <h2
           style={{
-            fontSize: "1.25rem",
+            fontSize: "1rem",
             fontWeight: "bold",
-            marginBottom: "1rem",
+            marginBottom: "0.5rem",
           }}
         >
-          Player Configuration
+          Players
         </h2>
 
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <thead>
-              <tr style={{ backgroundColor: "#f9fafb" }}>
-                <th
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
+          {players.map((player, index) => (
+            <div
+              key={index}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: "0.375rem",
+                padding: "0.5rem",
+                backgroundColor: "white",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.375rem",
+                  marginBottom: "0.5rem",
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  type="text"
+                  value={player.name}
+                  onChange={(e) => updatePlayer(index, "name", e.target.value)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "left",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    flex: 1,
+                    padding: "0.375rem 0.5rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                  }}
+                  placeholder="Player name"
+                />
+                <select
+                  value={player.position}
+                  onChange={(e) =>
+                    updatePlayer(index, "position", e.target.value)
+                  }
+                  style={{
+                    padding: "0.375rem 0.5rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.875rem",
                   }}
                 >
-                  Player Name
-                </th>
-                <th
+                  <option value="G">G</option>
+                  <option value="F">F</option>
+                </select>
+                <button
+                  onClick={() => removePlayer(index)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    padding: "0.375rem 0.5rem",
+                    backgroundColor: "#fee2e2",
+                    color: "#991b1b",
+                    border: "none",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
                   }}
                 >
-                  Position
-                </th>
-                <th
+                  ✕
+                </button>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: "0.375rem",
+                }}
+              >
+                <button
+                  onClick={() => toggleStarter(player.name)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    padding: "0.5rem 0.5rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    borderColor: starters.includes(player.name)
+                      ? "#10b981"
+                      : "#d1d5db",
+                    backgroundColor: starters.includes(player.name)
+                      ? "#d1fae5"
+                      : "white",
+                    color: starters.includes(player.name)
+                      ? "#065f46"
+                      : "#6b7280",
+                    fontWeight: starters.includes(player.name)
+                      ? "600"
+                      : "normal",
                   }}
                 >
-                  Target Min
-                </th>
-                <th
+                  Start
+                </button>
+                <button
+                  onClick={() => toggleCloser(player.name)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    padding: "0.5rem 0.5rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    borderColor: closers.includes(player.name)
+                      ? "#3b82f6"
+                      : "#d1d5db",
+                    backgroundColor: closers.includes(player.name)
+                      ? "#dbeafe"
+                      : "white",
+                    color: closers.includes(player.name)
+                      ? "#1e40af"
+                      : "#6b7280",
+                    fontWeight: closers.includes(player.name)
+                      ? "600"
+                      : "normal",
                   }}
                 >
-                  Starter
-                </th>
-                <th
+                  Finish
+                </button>
+                <button
+                  onClick={() => togglePrioritize(index)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    padding: "0.5rem 0.5rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    borderColor: player.prioritize ? "#f59e0b" : "#d1d5db",
+                    backgroundColor: player.prioritize ? "#fef3c7" : "white",
+                    color: player.prioritize ? "#92400e" : "#6b7280",
+                    fontWeight: player.prioritize ? "600" : "normal",
                   }}
                 >
-                  Closer
-                </th>
-                <th
+                  Bonus
+                </button>
+                <button
+                  onClick={() => toggleInexperienced(player.name)}
                   style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
+                    padding: "0.5rem 0.5rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    borderColor: inexperienced.includes(player.name)
+                      ? "#8b5cf6"
+                      : "#d1d5db",
+                    backgroundColor: inexperienced.includes(player.name)
+                      ? "#ede9fe"
+                      : "white",
+                    color: inexperienced.includes(player.name)
+                      ? "#5b21b6"
+                      : "#6b7280",
+                    fontWeight: inexperienced.includes(player.name)
+                      ? "600"
+                      : "normal",
                   }}
                 >
-                  Inexperienced
-                </th>
-                <th
-                  style={{
-                    padding: "0.75rem",
-                    textAlign: "center",
-                    border: "1px solid #e5e7eb",
-                    fontWeight: "600",
-                  }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player, index) => (
-                <tr
-                  key={index}
-                  style={{
-                    backgroundColor: index % 2 === 0 ? "white" : "#f9fafb",
-                  }}
-                >
-                  <td
-                    style={{ padding: "0.5rem", border: "1px solid #e5e7eb" }}
-                  >
-                    <input
-                      type="text"
-                      value={player.name}
-                      onChange={(e) =>
-                        updatePlayer(index, "name", e.target.value)
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "0.375rem",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "0.25rem",
-                      }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <select
-                      value={player.position}
-                      onChange={(e) =>
-                        updatePlayer(index, "position", e.target.value)
-                      }
-                      style={{
-                        padding: "0.375rem",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "0.25rem",
-                      }}
-                    >
-                      <option value="G">Guard</option>
-                      <option value="F">Forward</option>
-                    </select>
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <input
-                      type="number"
-                      value={player.targetMinutes}
-                      onChange={(e) =>
-                        updatePlayer(
-                          index,
-                          "targetMinutes",
-                          parseInt(e.target.value) || 0
-                        )
-                      }
-                      style={{
-                        width: "70px",
-                        padding: "0.375rem",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "0.25rem",
-                        textAlign: "center",
-                      }}
-                      min="0"
-                      max="40"
-                      step="5"
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={starters.includes(player.name)}
-                      onChange={() => toggleStarter(player.name)}
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        cursor: "pointer",
-                      }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={closers.includes(player.name)}
-                      onChange={() => toggleCloser(player.name)}
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        cursor: "pointer",
-                      }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={inexperienced.includes(player.name)}
-                      onChange={() => toggleInexperienced(player.name)}
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        cursor: "pointer",
-                      }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <button
-                      onClick={() => removePlayer(index)}
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        backgroundColor: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                      }}
-                      onMouseOver={(e) =>
-                        (e.target.style.backgroundColor = "#dc2626")
-                      }
-                      onMouseOut={(e) =>
-                        (e.target.style.backgroundColor = "#ef4444")
-                      }
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  Rookie
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div
           style={{
             marginTop: "1rem",
-            display: "flex",
-            gap: "1rem",
-            alignItems: "center",
           }}
         >
           <button
             onClick={solvePuzzle}
             style={{
-              padding: "0.75rem 2rem",
+              width: "100%",
+              padding: "0.5rem 1.5rem",
               backgroundColor: "#2563eb",
               color: "white",
-              border: "none",
-              borderRadius: "0.375rem",
-              fontSize: "1.125rem",
-              fontWeight: "700",
+              border: "1px solid #2563eb",
+              borderRadius: "9999px",
+              fontSize: "0.875rem",
+              fontWeight: "600",
               cursor: "pointer",
             }}
             onMouseOver={(e) => (e.target.style.backgroundColor = "#1d4ed8")}
@@ -710,8 +619,45 @@ const BasketballRotation = () => {
             🏀 Generate Rotation
           </button>
 
-          <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            Starters: {starters.length}/5 | Closers: {closers.length}/5
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#9ca3af",
+              textAlign: "center",
+              marginTop: "0.5rem",
+            }}
+          >
+            Start: {starters.length}/5 | Finish: {closers.length}/5
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.75rem",
+            backgroundColor: "#f9fafb",
+            borderRadius: "0.375rem",
+            fontSize: "0.8125rem",
+            color: "#6b7280",
+            lineHeight: "1.5",
+          }}
+        >
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong style={{ color: "#374151" }}>How it works:</strong> The
+            algorithm balances playing time evenly across all players (within 5
+            minutes).
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong>Bonus:</strong> When choosing between equally-rested
+            players, those marked "Bonus" get the edge for additional playing
+            time.
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <strong>Rookie:</strong> Prevents all rookie players from being on
+            court at the same time (ensures at least one experienced player).
+          </div>
+          <div>
+            <em>Tip: Click multiple times for different valid rotations.</em>
           </div>
         </div>
       </div>
@@ -750,15 +696,66 @@ const BasketballRotation = () => {
       {solution && (
         <>
           <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
-            <h2
+            <div
               style={{
-                fontSize: "1.5rem",
-                fontWeight: "bold",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
                 marginBottom: "1rem",
               }}
             >
-              Rotation Schedule
-            </h2>
+              <h2
+                style={{
+                  fontSize: "1.5rem",
+                  fontWeight: "bold",
+                  margin: 0,
+                }}
+              >
+                Rotation Schedule
+              </h2>
+              <button
+                onClick={() => copyToClipboard(generateCompleteCSV())}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#9ca3af",
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.color = "#6b7280";
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.color = "#9ca3af";
+                }}
+              >
+                copy as csv
+              </button>
+              <button
+                onClick={downloadAsImage}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#9ca3af",
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.color = "#6b7280";
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.color = "#9ca3af";
+                }}
+              >
+                print / save as pdf
+              </button>
+            </div>
             <table
               style={{
                 borderCollapse: "collapse",
@@ -818,7 +815,7 @@ const BasketballRotation = () => {
                           textAlign: "center",
                         }}
                       >
-                        {playing === 1 ? "X" : ""}
+                        {playing === 1 ? "🏀" : ""}
                       </td>
                     ))}
                     <td
@@ -907,23 +904,48 @@ const BasketballRotation = () => {
                   const periodNum = idx + 1;
                   const prevPeriod = periodNum - 1;
 
-                  const prevOnCourt = solution.players
-                    .filter(
-                      (_, pIdx) => solution.rotation[pIdx][prevPeriod] === 1
-                    )
-                    .map((p) => p.name);
-                  const currOnCourt = solution.players
-                    .filter(
-                      (_, pIdx) => solution.rotation[pIdx][periodNum] === 1
-                    )
-                    .map((p) => p.name);
+                  const prevOnCourt = solution.players.filter(
+                    (_, pIdx) => solution.rotation[pIdx][prevPeriod] === 1
+                  );
+                  const currOnCourt = solution.players.filter(
+                    (_, pIdx) => solution.rotation[pIdx][periodNum] === 1
+                  );
 
-                  const subsOut = prevOnCourt.filter(
-                    (name) => !currOnCourt.includes(name)
+                  const subsOutPlayers = prevOnCourt.filter(
+                    (p) => !currOnCourt.find((c) => c.name === p.name)
                   );
-                  const subsIn = currOnCourt.filter(
-                    (name) => !prevOnCourt.includes(name)
+                  const subsInPlayers = currOnCourt.filter(
+                    (p) => !prevOnCourt.find((c) => c.name === p.name)
                   );
+
+                  // Match substitutions by position when possible
+                  const matchedSubs = [];
+                  const unmatchedIn = [...subsInPlayers];
+                  const unmatchedOut = [...subsOutPlayers];
+
+                  // First pass: match by position
+                  for (let i = unmatchedIn.length - 1; i >= 0; i--) {
+                    const playerIn = unmatchedIn[i];
+                    const matchingOutIndex = unmatchedOut.findIndex(
+                      (p) => p.position === playerIn.position
+                    );
+                    if (matchingOutIndex !== -1) {
+                      matchedSubs.push({
+                        in: playerIn.name,
+                        out: unmatchedOut[matchingOutIndex].name,
+                      });
+                      unmatchedIn.splice(i, 1);
+                      unmatchedOut.splice(matchingOutIndex, 1);
+                    }
+                  }
+
+                  // Second pass: match remaining players regardless of position
+                  for (let i = 0; i < unmatchedIn.length; i++) {
+                    matchedSubs.push({
+                      in: unmatchedIn[i].name,
+                      out: unmatchedOut[i]?.name || "???",
+                    });
+                  }
 
                   return (
                     <tr
@@ -948,16 +970,16 @@ const BasketballRotation = () => {
                         }}
                       >
                         {periodNum === 4 ? (
-                          <span>{currOnCourt.join(", ")}</span>
-                        ) : subsIn.length > 0 ? (
-                          subsIn.map((inPlayer, i) => (
+                          <span>
+                            {currOnCourt.map((p) => p.name).join(", ")}
+                          </span>
+                        ) : matchedSubs.length > 0 ? (
+                          matchedSubs.map((sub, i) => (
                             <div key={i}>
-                              <span style={{ color: "#15803d" }}>
-                                {inPlayer}
-                              </span>
+                              <span style={{ color: "#15803d" }}>{sub.in}</span>
                               {" → "}
                               <span style={{ color: "#b91c1c" }}>
-                                {subsOut[i] || "???"}
+                                {sub.out}
                               </span>
                             </div>
                           ))
@@ -974,170 +996,160 @@ const BasketballRotation = () => {
             </table>
           </div>
 
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3
-              style={{
-                fontSize: "1.25rem",
-                fontWeight: "bold",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Validation Summary
-            </h3>
-            <table
-              style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                border: "1px solid #d1d5db",
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: "#f3f4f6" }}>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Player
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Total Time
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    1st Half
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    2nd Half
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Max Consecutive
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {solution.validation.map((v, idx) => {
-                  const valid =
-                    v.total >= 20 &&
-                    v.half1 >= 10 &&
-                    v.half2 >= 10 &&
-                    v.maxConsec <= 15;
-                  return (
-                    <tr
-                      key={idx}
+          <div className="no-print" style={{ marginBottom: "1.5rem" }}>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <button
+                onClick={() => setShowValidation(!showValidation)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#9ca3af",
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.color = "#6b7280";
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.color = "#9ca3af";
+                }}
+              >
+                {showValidation ? "hide" : "show"} validation details
+              </button>
+            </div>
+            {showValidation && (
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%",
+                  border: "1px solid #d1d5db",
+                }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: "#f3f4f6" }}>
+                    <th
                       style={{
-                        backgroundColor: valid ? "transparent" : "#fee2e2",
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
                       }}
                     >
-                      <td
+                      Player
+                    </th>
+                    <th
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
+                      }}
+                    >
+                      Total Time
+                    </th>
+                    <th
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
+                      }}
+                    >
+                      1st Half
+                    </th>
+                    <th
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
+                      }}
+                    >
+                      2nd Half
+                    </th>
+                    <th
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
+                      }}
+                    >
+                      Max Consecutive
+                    </th>
+                    <th
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem 1rem",
+                      }}
+                    >
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solution.validation.map((v, idx) => {
+                    const valid =
+                      v.maxConsec <= 15 && Math.abs(v.half1 - v.half2) <= 10;
+                    return (
+                      <tr
+                        key={idx}
                         style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
+                          backgroundColor: valid ? "transparent" : "#fee2e2",
                         }}
                       >
-                        {v.name}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {v.total}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {v.half1}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {v.half2}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {v.maxConsec}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem 1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {valid ? "✓" : "✗"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ marginTop: "2rem", textAlign: "center" }}>
-            <button
-              onClick={() => copyToClipboard(generateCompleteCSV())}
-              style={{
-                padding: "0.5rem 1rem",
-                backgroundColor: "#f3f4f6",
-                color: "#4b5563",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.25rem",
-                fontSize: "0.875rem",
-                cursor: "pointer",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.backgroundColor = "#e5e7eb";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.backgroundColor = "#f3f4f6";
-              }}
-            >
-              Copy as CSV
-            </button>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                          }}
+                        >
+                          {v.name}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {v.total}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {v.half1}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {v.half2}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {v.maxConsec}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {valid ? "✓" : "✗"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}

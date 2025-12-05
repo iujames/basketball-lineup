@@ -18,3 +18,72 @@ code {
     monospace;
 }
 
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Make tables horizontally scrollable on mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.875rem;
+  }
+  
+  /* Compact padding for mobile */
+  th, td {
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  /* Smaller headings */
+  h1 {
+    font-size: 1.5rem !important;
+  }
+  
+  h2 {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Compact buttons */
+  button {
+    font-size: 0.875rem !important;
+    padding: 0.5rem 1rem !important;
+  }
+  
+  /* Stack form inputs vertically on mobile */
+  input[type="text"],
+  input[type="number"],
+  select {
+    font-size: 14px !important;
+  }
+}
+
+@media print {
+  /* Remove background colors for printing */
+  body {
+    background-color: white !important;
+  }
+  
+  /* Hide elements with no-print class */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Keep tables together */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  /* Adjust title for print */
+  h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Ensure content is visible */
+  h2, table, td, th {
+    color: black !important;
+  }
+}
