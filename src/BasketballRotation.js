@@ -42,6 +42,8 @@ const BasketballRotation = () => {
   const [error, setError] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [removedPlayer, setRemovedPlayer] = useState(null);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const solvePuzzle = () => {
@@ -98,6 +100,9 @@ const BasketballRotation = () => {
         const checkInexperienced = (period) => {
           // If no inexperienced players defined, always valid
           if (inexperienced.length === 0) return true;
+
+          // If only 1 rookie, constraint doesn't apply (can't have "all rookies on court")
+          if (inexperienced.length === 1) return true;
 
           const onCourt = [];
           rotation.forEach((player, idx) => {
@@ -416,11 +421,56 @@ const BasketballRotation = () => {
   };
 
   const removePlayer = (index) => {
-    const playerName = players[index].name;
+    const player = players[index];
+    const playerName = player.name;
+
+    // Store removed player data for undo
+    setRemovedPlayer({
+      player: player,
+      index: index,
+      wasStarter: starters.includes(playerName),
+      wasCloser: closers.includes(playerName),
+      wasInexperienced: inexperienced.includes(playerName),
+    });
+
+    // Remove player
     setPlayers(players.filter((_, i) => i !== index));
     setStarters(starters.filter((name) => name !== playerName));
     setClosers(closers.filter((name) => name !== playerName));
     setInexperienced(inexperienced.filter((name) => name !== playerName));
+
+    // Show toast with undo
+    setToastMessage(`Removed ${playerName || "player"}`);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      setRemovedPlayer(null);
+    }, 5000);
+  };
+
+  const undoRemovePlayer = () => {
+    if (!removedPlayer) return;
+
+    const { player, index, wasStarter, wasCloser, wasInexperienced } =
+      removedPlayer;
+
+    // Re-add player at the same position (or at end if index is too large)
+    const newPlayers = [...players];
+    if (index >= newPlayers.length) {
+      newPlayers.push(player);
+    } else {
+      newPlayers.splice(index, 0, player);
+    }
+    setPlayers(newPlayers);
+
+    // Restore tags
+    if (wasStarter) setStarters([...starters, player.name]);
+    if (wasCloser) setClosers([...closers, player.name]);
+    if (wasInexperienced) setInexperienced([...inexperienced, player.name]);
+
+    // Hide toast
+    setShowToast(false);
+    setRemovedPlayer(null);
   };
 
   const periods = [
@@ -524,6 +574,7 @@ const BasketballRotation = () => {
     navigator.clipboard.writeText(csvContent);
 
     // Show toast
+    setToastMessage("✓ Copied to clipboard");
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2000);
   };
@@ -1476,7 +1527,7 @@ const BasketballRotation = () => {
             bottom: "2rem",
             left: "50%",
             transform: "translateX(-50%)",
-            backgroundColor: "#10b981",
+            backgroundColor: removedPlayer ? "#3b82f6" : "#10b981",
             color: "white",
             padding: "0.75rem 1.5rem",
             borderRadius: "0.5rem",
@@ -1484,9 +1535,35 @@ const BasketballRotation = () => {
             fontSize: "0.875rem",
             fontWeight: "500",
             zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
           }}
         >
-          ✓ Copied to clipboard
+          <span>{toastMessage}</span>
+          {removedPlayer && (
+            <button
+              onClick={undoRemovePlayer}
+              style={{
+                padding: "0.25rem 0.5rem",
+                backgroundColor: "rgba(255,255,255,0.2)",
+                color: "white",
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                fontWeight: "600",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.3)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)";
+              }}
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
     </div>
