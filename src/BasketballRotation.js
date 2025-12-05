@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toPng } from "html-to-image";
 
 const BasketballRotation = () => {
   const defaultPlayers = [
@@ -333,9 +334,48 @@ const BasketballRotation = () => {
   ];
 
   const downloadAsImage = async () => {
-    // We'll use html2canvas library - need to add it to package.json
-    // For now, we'll use a simpler approach with the native browser print
-    window.print();
+    try {
+      // Find the export content wrapper (excludes header and export button)
+      const container = document.querySelector(".export-content");
+
+      if (!container) {
+        alert("Could not find lineup to export");
+        return;
+      }
+
+      // Generate image with padding applied only to the export
+      const dataUrl = await toPng(container, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        cacheBust: true,
+        width: container.offsetWidth + 32, // Add padding width
+        height: container.offsetHeight + 32, // Add padding height
+        style: {
+          padding: "1rem",
+        },
+      });
+
+      // Download
+      const link = document.createElement("a");
+      link.download = `basketball-lineup-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      // Try to copy to clipboard
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        alert("✓ Image downloaded and copied to clipboard!");
+      } catch {
+        alert("✓ Image downloaded!");
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+      alert("Error creating image: " + error.message);
+    }
   };
 
   return (
@@ -347,7 +387,7 @@ const BasketballRotation = () => {
           marginBottom: "1rem",
         }}
       >
-        Basketball Rotation Generator
+        Basketball Lineup Generator
       </h1>
 
       {/* Player Configuration Section */}
@@ -557,7 +597,7 @@ const BasketballRotation = () => {
             onMouseOver={(e) => (e.target.style.backgroundColor = "#1d4ed8")}
             onMouseOut={(e) => (e.target.style.backgroundColor = "#2563eb")}
           >
-            🏀 Generate Rotation
+            🏀 Generate
           </button>
 
           <div
@@ -679,247 +719,216 @@ const BasketballRotation = () => {
                 export
               </button>
             </div>
-            <table
-              style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                border: "1px solid #d1d5db",
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: "#f3f4f6" }}>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Player
-                  </th>
-                  {periods.map((p, idx) => (
+
+            {/* Wrapper for image export - excludes header */}
+            <div className="export-content">
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%",
+                  border: "1px solid #d1d5db",
+                }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: "#f3f4f6" }}>
                     <th
-                      key={idx}
                       style={{
                         border: "1px solid #d1d5db",
                         padding: "0.5rem 1rem",
                       }}
                     >
-                      {p}
+                      Player
                     </th>
-                  ))}
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem 1rem",
-                    }}
-                  >
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {solution.players.map((player, pIdx) => (
-                  <tr key={pIdx}>
-                    <td
+                    {periods.map((p, idx) => (
+                      <th
+                        key={idx}
+                        style={{
+                          border: "1px solid #d1d5db",
+                          padding: "0.5rem 1rem",
+                        }}
+                      >
+                        {p}
+                      </th>
+                    ))}
+                    <th
                       style={{
                         border: "1px solid #d1d5db",
                         padding: "0.5rem 1rem",
-                        fontWeight: "600",
                       }}
                     >
-                      {player.name}
-                    </td>
-                    {solution.rotation[pIdx].map((playing, periodIdx) => (
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solution.players.map((player, pIdx) => (
+                    <tr key={pIdx}>
                       <td
-                        key={periodIdx}
+                        style={{
+                          border: "1px solid #d1d5db",
+                          padding: "0.5rem 1rem",
+                          fontWeight: "600",
+                        }}
+                      >
+                        {player.name}
+                      </td>
+                      {solution.rotation[pIdx].map((playing, periodIdx) => (
+                        <td
+                          key={periodIdx}
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem 1rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          {playing === 1 ? "🏀" : ""}
+                        </td>
+                      ))}
+                      <td
                         style={{
                           border: "1px solid #d1d5db",
                           padding: "0.5rem 1rem",
                           textAlign: "center",
-                        }}
-                      >
-                        {playing === 1 ? "🏀" : ""}
-                      </td>
-                    ))}
-                    <td
-                      style={{
-                        border: "1px solid #d1d5db",
-                        padding: "0.5rem 1rem",
-                        textAlign: "center",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {solution.validation[pIdx].total} min
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div
-            className="substitution-report-container"
-            style={{ marginBottom: "1.5rem" }}
-          >
-            <h2
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "bold",
-                marginBottom: "0.75rem",
-              }}
-            >
-              Substitutions
-            </h2>
-            <table
-              style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                border: "1px solid #d1d5db",
-                fontSize: "0.875rem",
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: "#f3f4f6" }}>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem",
-                      textAlign: "left",
-                    }}
-                  >
-                    Time
-                  </th>
-                  <th
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem",
-                      textAlign: "left",
-                    }}
-                  >
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Starting lineup */}
-                <tr>
-                  <td
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Start
-                  </td>
-                  <td
-                    style={{
-                      border: "1px solid #d1d5db",
-                      padding: "0.5rem",
-                    }}
-                  >
-                    {solution.players
-                      .filter((_, pIdx) => solution.rotation[pIdx][0] === 1)
-                      .map((p) => p.name)
-                      .join(", ")}
-                  </td>
-                </tr>
-
-                {/* Substitutions for each period */}
-                {periods.slice(1).map((period, idx) => {
-                  const periodNum = idx + 1;
-                  const prevPeriod = periodNum - 1;
-
-                  const prevOnCourt = solution.players.filter(
-                    (_, pIdx) => solution.rotation[pIdx][prevPeriod] === 1
-                  );
-                  const currOnCourt = solution.players.filter(
-                    (_, pIdx) => solution.rotation[pIdx][periodNum] === 1
-                  );
-
-                  const subsOutPlayers = prevOnCourt.filter(
-                    (p) => !currOnCourt.find((c) => c.name === p.name)
-                  );
-                  const subsInPlayers = currOnCourt.filter(
-                    (p) => !prevOnCourt.find((c) => c.name === p.name)
-                  );
-
-                  // Match substitutions by position when possible
-                  const matchedSubs = [];
-                  const unmatchedIn = [...subsInPlayers];
-                  const unmatchedOut = [...subsOutPlayers];
-
-                  // First pass: match by position
-                  for (let i = unmatchedIn.length - 1; i >= 0; i--) {
-                    const playerIn = unmatchedIn[i];
-                    const matchingOutIndex = unmatchedOut.findIndex(
-                      (p) => p.position === playerIn.position
-                    );
-                    if (matchingOutIndex !== -1) {
-                      matchedSubs.push({
-                        in: playerIn.name,
-                        out: unmatchedOut[matchingOutIndex].name,
-                      });
-                      unmatchedIn.splice(i, 1);
-                      unmatchedOut.splice(matchingOutIndex, 1);
-                    }
-                  }
-
-                  // Second pass: match remaining players regardless of position
-                  for (let i = 0; i < unmatchedIn.length; i++) {
-                    matchedSubs.push({
-                      in: unmatchedIn[i].name,
-                      out: unmatchedOut[i]?.name || "???",
-                    });
-                  }
-
-                  return (
-                    <tr
-                      key={idx}
-                      style={{
-                        backgroundColor: "transparent",
-                      }}
-                    >
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem",
                           fontWeight: "600",
                         }}
                       >
-                        {period}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #d1d5db",
-                          padding: "0.5rem",
-                        }}
-                      >
-                        {periodNum === 4 ? (
-                          <span>
-                            {currOnCourt.map((p) => p.name).join(", ")}
-                          </span>
-                        ) : matchedSubs.length > 0 ? (
-                          matchedSubs.map((sub, i) => (
-                            <div key={i}>
-                              <span style={{ color: "#15803d" }}>{sub.in}</span>
-                              {" → "}
-                              <span style={{ color: "#b91c1c" }}>
-                                {sub.out}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <span style={{ color: "#9ca3af" }}>
-                            No substitutions
-                          </span>
-                        )}
+                        {solution.validation[pIdx].total} min
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Substitution Report - compact, no header */}
+              <table
+                className="substitution-report-container"
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%",
+                  border: "1px solid #d1d5db",
+                  fontSize: "0.875rem",
+                  marginTop: "1rem",
+                }}
+              >
+                <tbody>
+                  {/* Starting lineup */}
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Start
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem",
+                      }}
+                    >
+                      {solution.players
+                        .filter((_, pIdx) => solution.rotation[pIdx][0] === 1)
+                        .map((p) => p.name)
+                        .join(", ")}
+                    </td>
+                  </tr>
+
+                  {/* Substitutions for each period */}
+                  {periods.slice(1).map((period, idx) => {
+                    const periodNum = idx + 1;
+                    const prevPeriod = periodNum - 1;
+
+                    const prevOnCourt = solution.players.filter(
+                      (_, pIdx) => solution.rotation[pIdx][prevPeriod] === 1
+                    );
+                    const currOnCourt = solution.players.filter(
+                      (_, pIdx) => solution.rotation[pIdx][periodNum] === 1
+                    );
+
+                    const subsOutPlayers = prevOnCourt.filter(
+                      (p) => !currOnCourt.find((c) => c.name === p.name)
+                    );
+                    const subsInPlayers = currOnCourt.filter(
+                      (p) => !prevOnCourt.find((c) => c.name === p.name)
+                    );
+
+                    // Match substitutions by position when possible
+                    const matchedSubs = [];
+                    const unmatchedIn = [...subsInPlayers];
+                    const unmatchedOut = [...subsOutPlayers];
+
+                    // First pass: match by position
+                    for (let i = unmatchedIn.length - 1; i >= 0; i--) {
+                      const playerIn = unmatchedIn[i];
+                      const matchingOutIndex = unmatchedOut.findIndex(
+                        (p) => p.position === playerIn.position
+                      );
+                      if (matchingOutIndex !== -1) {
+                        matchedSubs.push({
+                          in: playerIn.name,
+                          out: unmatchedOut[matchingOutIndex].name,
+                        });
+                        unmatchedIn.splice(i, 1);
+                        unmatchedOut.splice(matchingOutIndex, 1);
+                      }
+                    }
+
+                    // Second pass: match remaining players regardless of position
+                    for (let i = 0; i < unmatchedIn.length; i++) {
+                      matchedSubs.push({
+                        in: unmatchedIn[i].name,
+                        out: unmatchedOut[i]?.name || "???",
+                      });
+                    }
+
+                    return (
+                      <tr key={idx}>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {period}
+                        </td>
+                        <td
+                          style={{
+                            border: "1px solid #d1d5db",
+                            padding: "0.5rem",
+                          }}
+                        >
+                          {periodNum === 4 ? (
+                            <span>
+                              {currOnCourt.map((p) => p.name).join(", ")}
+                            </span>
+                          ) : matchedSubs.length > 0 ? (
+                            matchedSubs.map((sub, i) => (
+                              <div key={i}>
+                                <span style={{ color: "#15803d" }}>
+                                  {sub.in}
+                                </span>
+                                {" → "}
+                                <span style={{ color: "#b91c1c" }}>
+                                  {sub.out}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span style={{ color: "#9ca3af" }}>
+                              No substitutions
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* End export-content wrapper */}
           </div>
 
           <div
