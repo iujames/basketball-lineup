@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { toPng } from "html-to-image";
+import { Trash2 } from "lucide-react";
 
 const BasketballRotation = () => {
   // Check query string parameters
@@ -533,17 +534,30 @@ const BasketballRotation = () => {
         style={{
           fontSize: "1.75rem",
           fontWeight: "bold",
-          marginBottom: "1rem",
+          marginBottom: "0.25rem",
         }}
       >
         Basketball Lineup Generator
       </h1>
+
+      <p
+        style={{
+          fontSize: "0.75rem",
+          color: "#9ca3af",
+          marginBottom: "1rem",
+        }}
+      >
+        Best viewed on mobile
+      </p>
 
       {/* How it Works Section */}
       <div
         className="no-print"
         style={{
           marginBottom: "1rem",
+          backgroundColor: "#eff6ff",
+          padding: "0.5rem 0.75rem",
+          borderRadius: "0.375rem",
         }}
       >
         <button
@@ -658,9 +672,11 @@ const BasketballRotation = () => {
           <>
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                 gap: "0.5rem",
+                maxWidth: "900px",
+                margin: "0 auto",
               }}
             >
               {players.map((player, index) => (
@@ -716,15 +732,25 @@ const BasketballRotation = () => {
                       onClick={() => removePlayer(index)}
                       style={{
                         padding: "0.375rem 0.5rem",
-                        backgroundColor: "#fee2e2",
-                        color: "#991b1b",
-                        border: "none",
+                        backgroundColor: "transparent",
+                        color: "#6b7280",
+                        border: "1px solid #d1d5db",
                         borderRadius: "0.25rem",
                         cursor: "pointer",
-                        fontSize: "0.875rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f3f4f6";
+                        e.currentTarget.style.color = "#374151";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.color = "#6b7280";
                       }}
                     >
-                      ✕
+                      <Trash2 size={14} />
                     </button>
                   </div>
                   <div
