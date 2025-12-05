@@ -40,6 +40,8 @@ const BasketballRotation = () => {
   const [solution, setSolution] = useState(null);
   const [error, setError] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const solvePuzzle = () => {
     // Validate we have players
@@ -474,7 +476,6 @@ const BasketballRotation = () => {
       ) {
         await navigator.share({
           files: [file],
-          title: "Basketball Lineup",
         });
       }
     } catch (error) {
@@ -497,6 +498,35 @@ const BasketballRotation = () => {
     }
   };
 
+  const copyCSV = () => {
+    if (!solution) return;
+
+    // Create CSV header
+    const headers = ["Player", ...periods];
+
+    // Create CSV rows
+    const rows = solution.players.map((player, pIdx) => {
+      const row = [player.name];
+      periods.forEach((_, periodIdx) => {
+        const isPlaying = solution.rotation[pIdx][periodIdx] === 1;
+        row.push(isPlaying ? "X" : "");
+      });
+      return row;
+    });
+
+    // Combine into CSV string
+    const csvContent = [headers, ...rows]
+      .map((row) => row.join(","))
+      .join("\n");
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(csvContent);
+
+    // Show toast
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  };
+
   return (
     <div style={{ padding: "0.75rem", maxWidth: "1400px", margin: "0 auto" }}>
       <h1
@@ -508,6 +538,90 @@ const BasketballRotation = () => {
       >
         Basketball Lineup Generator
       </h1>
+
+      {/* How it Works Section */}
+      <div
+        className="no-print"
+        style={{
+          marginBottom: "1rem",
+        }}
+      >
+        <button
+          onClick={() => setShowHowItWorks(!showHowItWorks)}
+          style={{
+            width: "100%",
+            padding: "0.5rem 0",
+            backgroundColor: "transparent",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.8125rem",
+            fontWeight: "500",
+            color: "#6b7280",
+            textAlign: "left",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.color = "#374151";
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.color = "#6b7280";
+          }}
+        >
+          <span
+            style={{
+              transform: showHowItWorks ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+              display: "inline-block",
+              fontSize: "0.625rem",
+            }}
+          >
+            ▶
+          </span>
+          <span>How it works</span>
+        </button>
+
+        <div
+          style={{
+            maxHeight: showHowItWorks ? "500px" : "0",
+            overflow: "hidden",
+            transition: "max-height 0.3s ease",
+          }}
+        >
+          <div
+            style={{
+              padding: "0.5rem 0 0.5rem 1.25rem",
+              fontSize: "0.8125rem",
+              color: "#6b7280",
+              lineHeight: "1.5",
+            }}
+          >
+            <div style={{ marginBottom: "0.5rem" }}>
+              <strong style={{ color: "#374151" }}>Algorithm:</strong> Balances
+              playing time evenly across all players (within 5 minutes),
+              factoring in position eligibility (balanced G and F on court).
+              Assumes two 20-minute halves, and substitutions every 5 minutes.
+            </div>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <strong>Start:</strong> Players designated to begin the game.
+            </div>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <strong>Finish:</strong> Players designated to close out the game.
+            </div>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <strong>Bonus:</strong> When choosing between equally-rested
+              players, those marked "Bonus" get the edge for additional playing
+              time. Only applies when time is not an even split.
+            </div>
+            <div>
+              <strong>Rookie:</strong> Tag less experienced players to prevent
+              them from being on court at the same time (ensures at least one
+              experienced player).
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Player Configuration Section */}
       <div
@@ -781,35 +895,17 @@ const BasketballRotation = () => {
           >
             Start: {starters.length}/5 | Finish: {closers.length}/5
           </div>
-        </div>
 
-        <div
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.75rem",
-            backgroundColor: "#f9fafb",
-            borderRadius: "0.375rem",
-            fontSize: "0.8125rem",
-            color: "#6b7280",
-            lineHeight: "1.5",
-          }}
-        >
-          <div style={{ marginBottom: "0.5rem" }}>
-            <strong style={{ color: "#374151" }}>How it works:</strong> The
-            algorithm balances playing time evenly across all players (within 5
-            minutes).
-          </div>
-          <div style={{ marginBottom: "0.5rem" }}>
-            <strong>Bonus:</strong> When choosing between equally-rested
-            players, those marked "Bonus" get the edge for additional playing
-            time.
-          </div>
-          <div style={{ marginBottom: "0.5rem" }}>
-            <strong>Rookie:</strong> Prevents all rookie players from being on
-            court at the same time (ensures at least one experienced player).
-          </div>
-          <div>
-            <em>Tip: Click multiple times for different valid rotations.</em>
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#9ca3af",
+              textAlign: "center",
+              marginTop: "0.5rem",
+              fontStyle: "italic",
+            }}
+          >
+            Tip: Click Generate multiple times for different valid rotations.
           </div>
         </div>
       </div>
@@ -829,21 +925,6 @@ const BasketballRotation = () => {
           <div style={{ whiteSpace: "pre-line" }}>
             <strong>Error:</strong> {error}
           </div>
-        </div>
-      )}
-
-      {/* Solution Display */}
-      {!solution && !error && (
-        <div
-          style={{
-            padding: "2rem",
-            textAlign: "center",
-            color: "#6b7280",
-            fontSize: "1.125rem",
-          }}
-        >
-          Configure your players above and click "Generate Rotation" to see the
-          schedule
         </div>
       )}
 
@@ -912,6 +993,27 @@ const BasketballRotation = () => {
                   }}
                 >
                   download
+                </button>
+                <button
+                  onClick={copyCSV}
+                  style={{
+                    padding: "0.375rem 0.75rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    backgroundColor: "white",
+                    color: "#6b7280",
+                    fontWeight: "normal",
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = "#f9fafb";
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = "white";
+                  }}
+                >
+                  copy csv
                 </button>
               </div>
             </div>
@@ -988,7 +1090,7 @@ const BasketballRotation = () => {
                           fontWeight: "600",
                         }}
                       >
-                        {solution.validation[pIdx].total} min
+                        {solution.validation[pIdx].total}
                       </td>
                     </tr>
                   ))}
@@ -1338,6 +1440,28 @@ const BasketballRotation = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Toast notification */}
+      {showToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "2rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#10b981",
+            color: "white",
+            padding: "0.75rem 1.5rem",
+            borderRadius: "0.5rem",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            fontSize: "0.875rem",
+            fontWeight: "500",
+            zIndex: 1000,
+          }}
+        >
+          ✓ Copied to clipboard
+        </div>
       )}
     </div>
   );
