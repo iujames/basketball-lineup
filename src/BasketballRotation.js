@@ -298,9 +298,10 @@ const BasketballRotation = () => {
         // Relax constraints for small teams
         const teamSize = players.length;
 
-        // Each half should have some balance (within 10 min per player)
+        // Each half should have some balance
+        // For balanced play, difference should be at most 5 minutes (e.g., 10-10, 12.5-7.5, not 15-5)
         const halfBalanced = validation.every(
-          (v) => Math.abs(v.half1 - v.half2) <= 10
+          (v) => Math.abs(v.half1 - v.half2) <= 5
         );
 
         // No player should play more than 15 consecutive minutes
@@ -327,10 +328,12 @@ const BasketballRotation = () => {
           }
           if (!halfBalanced) {
             const unbalanced = validation.filter(
-              (v) => Math.abs(v.half1 - v.half2) > 10
+              (v) => Math.abs(v.half1 - v.half2) > 5
             );
             issues.push(
-              `Half imbalance for: ${unbalanced.map((v) => v.name).join(", ")}`
+              `Half imbalance for: ${unbalanced
+                .map((v) => `${v.name} (H1:${v.half1}, H2:${v.half2})`)
+                .join(", ")}`
             );
           }
           if (!consecValid) {
@@ -1447,7 +1450,7 @@ const BasketballRotation = () => {
                   <tbody>
                     {solution.validation.map((v, idx) => {
                       const valid =
-                        v.maxConsec <= 15 && Math.abs(v.half1 - v.half2) <= 10;
+                        v.maxConsec <= 15 && Math.abs(v.half1 - v.half2) <= 5;
                       return (
                         <tr
                           key={idx}
