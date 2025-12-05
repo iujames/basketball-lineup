@@ -431,37 +431,69 @@ const BasketballRotation = () => {
     "5:00",
   ];
 
-  const downloadAsImage = async () => {
+  const generateImage = async () => {
+    // Find the export content wrapper (excludes header and export button)
+    const container = document.querySelector(".export-content");
+
+    if (!container) {
+      return null;
+    }
+
+    // Generate image with padding applied only to the export
+    const dataUrl = await toPng(container, {
+      backgroundColor: "#ffffff",
+      pixelRatio: 2,
+      cacheBust: true,
+      width: container.offsetWidth + 32, // Add padding width
+      height: container.offsetHeight + 32, // Add padding height
+      style: {
+        padding: "1rem",
+      },
+    });
+
+    return dataUrl;
+  };
+
+  const shareImage = async () => {
     try {
-      // Find the export content wrapper (excludes header and export button)
-      const container = document.querySelector(".export-content");
+      const dataUrl = await generateImage();
+      if (!dataUrl) return;
 
-      if (!container) {
-        alert("Could not find lineup to save");
-        return;
-      }
-
-      // Generate image with padding applied only to the export
-      const dataUrl = await toPng(container, {
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-        cacheBust: true,
-        width: container.offsetWidth + 32, // Add padding width
-        height: container.offsetHeight + 32, // Add padding height
-        style: {
-          padding: "1rem",
-        },
+      // Convert to blob for sharing
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `lineup-${Date.now()}.png`, {
+        type: "image/png",
       });
+
+      // Use Web Share API
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: "Basketball Lineup",
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing image:", error);
+    }
+  };
+
+  const downloadImage = async () => {
+    try {
+      const dataUrl = await generateImage();
+      if (!dataUrl) return;
 
       // Download the image
       const link = document.createElement("a");
       link.download = `lineup-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
-      alert("✓ Image saved!");
     } catch (error) {
-      console.error("Error saving image:", error);
-      alert("Error saving image: " + error.message);
+      console.error("Error downloading image:", error);
     }
   };
 
@@ -838,27 +870,50 @@ const BasketballRotation = () => {
               >
                 Lineup
               </h2>
-              <button
-                onClick={downloadAsImage}
-                style={{
-                  padding: "0.375rem 0.75rem",
-                  fontSize: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "9999px",
-                  cursor: "pointer",
-                  backgroundColor: "white",
-                  color: "#6b7280",
-                  fontWeight: "normal",
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.backgroundColor = "#f9fafb";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.backgroundColor = "white";
-                }}
-              >
-                save image
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={shareImage}
+                  style={{
+                    padding: "0.375rem 0.75rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    backgroundColor: "white",
+                    color: "#6b7280",
+                    fontWeight: "normal",
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = "#f9fafb";
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = "white";
+                  }}
+                >
+                  share
+                </button>
+                <button
+                  onClick={downloadImage}
+                  style={{
+                    padding: "0.375rem 0.75rem",
+                    fontSize: "0.75rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "9999px",
+                    cursor: "pointer",
+                    backgroundColor: "white",
+                    color: "#6b7280",
+                    fontWeight: "normal",
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = "#f9fafb";
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = "white";
+                  }}
+                >
+                  download
+                </button>
+              </div>
             </div>
 
             {/* Wrapper for image export - excludes header */}
