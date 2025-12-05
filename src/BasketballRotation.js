@@ -437,7 +437,7 @@ const BasketballRotation = () => {
       const container = document.querySelector(".export-content");
 
       if (!container) {
-        alert("Could not find lineup to copy");
+        alert("Could not find lineup to save");
         return;
       }
 
@@ -453,16 +453,15 @@ const BasketballRotation = () => {
         },
       });
 
-      // Copy to clipboard
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
-      alert("✓ Copied to clipboard!");
+      // Download the image
+      const link = document.createElement("a");
+      link.download = `lineup-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+      alert("✓ Image saved!");
     } catch (error) {
-      console.error("Error copying image:", error);
-      alert("Error copying image: " + error.message);
+      console.error("Error saving image:", error);
+      alert("Error saving image: " + error.message);
     }
   };
 
@@ -858,7 +857,7 @@ const BasketballRotation = () => {
                   e.target.style.backgroundColor = "white";
                 }}
               >
-                copy
+                save image
               </button>
             </div>
 
