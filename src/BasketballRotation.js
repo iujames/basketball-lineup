@@ -339,7 +339,7 @@ const BasketballRotation = () => {
       const container = document.querySelector(".export-content");
 
       if (!container) {
-        alert("Could not find lineup to export");
+        alert("Could not find lineup to copy");
         return;
       }
 
@@ -355,26 +355,16 @@ const BasketballRotation = () => {
         },
       });
 
-      // Download
-      const link = document.createElement("a");
-      link.download = `basketball-lineup-${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
-
-      // Try to copy to clipboard
-      try {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": blob }),
-        ]);
-        alert("✓ Image downloaded and copied to clipboard!");
-      } catch {
-        alert("✓ Image downloaded!");
-      }
+      // Copy to clipboard
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+      alert("✓ Copied to clipboard!");
     } catch (error) {
-      console.error("Error generating image:", error);
-      alert("Error creating image: " + error.message);
+      console.error("Error copying image:", error);
+      alert("Error copying image: " + error.message);
     }
   };
 
@@ -401,16 +391,6 @@ const BasketballRotation = () => {
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
         }}
       >
-        <h2
-          style={{
-            fontSize: "1rem",
-            fontWeight: "bold",
-            marginBottom: "0.5rem",
-          }}
-        >
-          Players
-        </h2>
-
         <div
           style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
         >
@@ -716,7 +696,7 @@ const BasketballRotation = () => {
                   e.target.style.backgroundColor = "white";
                 }}
               >
-                export
+                copy
               </button>
             </div>
 
@@ -830,6 +810,14 @@ const BasketballRotation = () => {
                     >
                       {solution.players
                         .filter((_, pIdx) => solution.rotation[pIdx][0] === 1)
+                        .sort((a, b) => {
+                          // Sort by position: G first, then F
+                          if (a.position === "G" && b.position === "F")
+                            return -1;
+                          if (a.position === "F" && b.position === "G")
+                            return 1;
+                          return 0;
+                        })
                         .map((p) => p.name)
                         .join(", ")}
                     </td>
@@ -902,7 +890,17 @@ const BasketballRotation = () => {
                         >
                           {periodNum === 4 ? (
                             <span>
-                              {currOnCourt.map((p) => p.name).join(", ")}
+                              {currOnCourt
+                                .sort((a, b) => {
+                                  // Sort by position: G first, then F
+                                  if (a.position === "G" && b.position === "F")
+                                    return -1;
+                                  if (a.position === "F" && b.position === "G")
+                                    return 1;
+                                  return 0;
+                                })
+                                .map((p) => p.name)
+                                .join(", ")}
                             </span>
                           ) : matchedSubs.length > 0 ? (
                             matchedSubs.map((sub, i) => (
@@ -925,6 +923,38 @@ const BasketballRotation = () => {
                       </tr>
                     );
                   })}
+
+                  {/* Finish row - show closing lineup */}
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Finish
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #d1d5db",
+                        padding: "0.5rem",
+                      }}
+                    >
+                      {solution.players
+                        .filter((_, pIdx) => solution.rotation[pIdx][7] === 1)
+                        .sort((a, b) => {
+                          // Sort by position: G first, then F
+                          if (a.position === "G" && b.position === "F")
+                            return -1;
+                          if (a.position === "F" && b.position === "G")
+                            return 1;
+                          return 0;
+                        })
+                        .map((p) => p.name)
+                        .join(", ")}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
